@@ -1,0 +1,1 @@
+recursive-include deephaven_component/frontend/build *
