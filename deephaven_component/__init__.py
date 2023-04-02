@@ -111,16 +111,18 @@ def deephaven_component(deephaven_object, key=None):
 if not _RELEASE:
     import streamlit as st
     
-    print("Starting Deephaven Server...")
-    # Start up the Deephaven Server
-    from deephaven_server import Server
-    s = Server(port=8899)
-    s.start()
-    print("Deephaven Server started!")
-
+    @st.cache_resource
+    def init_server():
+        print("Starting Deephaven Server...")
+        # Start up the Deephaven Server
+        from deephaven_server import Server
+        s = Server(port=8899)
+        s.start()
+        print("Deephaven Server started!")
+        return s
+    s = init_server()
+    
     st.subheader("Deephaven Component Demo")
-
-
 
     # Create a deephaven component with a simple table
     # Create a table and display it
