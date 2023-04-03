@@ -9,36 +9,6 @@ from uuid import uuid4
 # release process.)
 _RELEASE = False
 
-# Declare a Streamlit component. `declare_component` returns a function
-# that is used to create instances of the component. We're naming this
-# function "_component_func", with an underscore prefix, because we don't want
-# to expose it directly to users. Instead, we will create a custom wrapper
-# function, below, that will serve as our component's public API.
-
-# It's worth noting that this call to `declare_component` is the
-# *only thing* you need to do to create the binding between Streamlit and
-# your component frontend. Everything else we do in this file is simply a
-# best practice.
-
-if not _RELEASE:
-    _component_func = components.declare_component(
-        # We give the component a simple, descriptive name ("deephaven_component"
-        # does not fit this bill, so please choose something better for your
-        # own component :)
-        "deephaven_component",
-        # Pass `url` here to tell Streamlit that the component will be served
-        # by the local dev server that you run via `npm run start`.
-        # (This is useful while your component is in development.)
-        url="http://localhost:3001",
-    )
-else:
-    # When we're distributing a production version of the component, we'll
-    # replace the `url` param with `path`, and point it to to the component's
-    # build directory:
-    parent_dir = os.path.dirname(os.path.abspath(__file__))
-    build_dir = os.path.join(parent_dir, "frontend/build")
-    _component_func = components.declare_component("deephaven_component", path=build_dir)
-
 def _str_object_type(obj):
   """Returns the object type as a string value"""
   return f"{obj.__class__.__module__}.{obj.__class__.__name__}"
@@ -58,13 +28,17 @@ def _path_for_object(obj):
 # `declare_component` and call it done. The wrapper allows us to customize
 # our component's API: we can pre-process its input args, post-process its
 # output value, and add a docstring for users.
-def deephaven_component(deephaven_object, key=None):
+def deephaven_component(deephaven_object, height=600, width=None, key=None):
     """Create a new instance of "deephaven_component".
 
     Parameters
     ----------
     table: deephaven.table.Table | deephaven.plot.figure.Figure | pandas.core.frame.DataFrame
         The Deephaven widget we want to display
+    height: int
+        The height of the widget in pixels
+    width: int
+        The width of the widget in pixels
     key: str or None
         An optional key that uniquely identifies this component. If this is
         None, and the component's arguments are changed, the component will
@@ -100,9 +74,8 @@ def deephaven_component(deephaven_object, key=None):
 
     # We don't really need the component value in the Deephaven example, since we're just creating a display widget...
     # Maybe if we were making a one click widget, that would make sense...
-    component_value = _component_func(iframe_url=iframe_url, object_type=object_type, key=key, default=0)
-
-    return object_id
+    # component_value = _component_func(iframe_url=iframe_url, object_type=object_type, width=width, height=height, key=key, default=0)
+    return components.iframe(iframe_url, height=height, width=width)
 
 
 # Add some test code to play with the component while it's in development.
@@ -121,12 +94,11 @@ if not _RELEASE:
         print("Deephaven Server started!")
         return s
     s = init_server()
-    
+
     st.subheader("Deephaven Component Demo")
 
     # Create a deephaven component with a simple table
     # Create a table and display it
     from deephaven import empty_table
     t = empty_table(1000).update("x=i")
-    object_id = deephaven_component(t)
-    st.markdown("Object_id is %s!" % str(object_id))
+    deephaven_component(t)

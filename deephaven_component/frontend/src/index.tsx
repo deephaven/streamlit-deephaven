@@ -14,7 +14,18 @@ function onRender(event: Event): void {
   const data = (event as CustomEvent<RenderData>).detail
 
   const iframe_url = data.args["iframe_url"]
+  const width = data.args["width"]
+  const height = data.args["height"]
   iframe.src = iframe_url
+
+  if (width > 0) {
+    iframe.width = width
+    iframe.style.width = `${width}px`
+  }
+  if (height > 0) {
+    iframe.height = height
+    iframe.style.height = `${height}px`
+  }
 
   // We tell Streamlit to update our frameHeight after each render event, in
   // case it has changed. (This isn't strictly necessary for the example
