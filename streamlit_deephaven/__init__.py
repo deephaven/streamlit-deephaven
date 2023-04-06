@@ -3,11 +3,7 @@ import os
 import streamlit.components.v1 as components
 from uuid import uuid4
 
-# Create a _RELEASE constant. We'll set this to False while we're developing
-# the component, and True when we're ready to package and distribute it.
-# (This is, of course, optional - there are innumerable ways to manage your
-# release process.)
-_RELEASE = False
+DEV_MODE = os.environ.get("DH_DEV_MODE", False)
 
 def _str_object_type(obj):
   """Returns the object type as a string value"""
@@ -28,17 +24,19 @@ def _path_for_object(obj):
 # `declare_component` and call it done. The wrapper allows us to customize
 # our component's API: we can pre-process its input args, post-process its
 # output value, and add a docstring for users.
-def deephaven_component(deephaven_object, height=600, width=None, key=None):
+def deephaven_component(widget, height=600, width=None, object_id=None, key=None):
     """Create a new instance of "deephaven_component".
 
     Parameters
     ----------
-    table: deephaven.table.Table | deephaven.plot.figure.Figure | pandas.core.frame.DataFrame
+    widget: deephaven.table.Table | deephaven.plot.figure.Figure | pandas.core.frame.DataFrame
         The Deephaven widget we want to display
     height: int
         The height of the widget in pixels
     width: int
         The width of the widget in pixels
+    object_id: string
+        The variable name of the Deephaven widget we want to display
     key: str or None
         An optional key that uniquely identifies this component. If this is
         None, and the component's arguments are changed, the component will
@@ -59,18 +57,17 @@ def deephaven_component(deephaven_object, height=600, width=None, key=None):
     # "default" is a special argument that specifies the initial return
     # value of the component before the user has interacted with it.
 
-    # Generate a new table ID using a UUID prepended with a `t_` prefix
-    object_id = f"t_{str(uuid4()).replace('-', '_')}"
+    # Generate a new table ID using a UUID prepended with a `__w_` prefix if name not specified
+    if object_id is None:
+        object_id = f"__w_{str(uuid4()).replace('-', '_')}"
 
-    print("Setting iframe_url...")
     # Generate the iframe_url from the object type
     server_url = f"http://localhost:{Server.instance.port}"
-    iframe_url = f"{server_url}/iframe/{_path_for_object(deephaven_object)}/?name={object_id}"
-    object_type = _str_object_type(deephaven_object)
-
+    iframe_url = f"{server_url}/iframe/{_path_for_object(widget)}/?name={object_id}"
+    object_type = _str_object_type(widget)
 
     # Add the table to the main modules globals list so it can be retrieved by the iframe
-    __main__.__dict__[object_id] = deephaven_object
+    __main__.__dict__[object_id] = widget
 
     # We don't really need the component value in the Deephaven example, since we're just creating a display widget...
     # Maybe if we were making a one click widget, that would make sense...
@@ -81,7 +78,7 @@ def deephaven_component(deephaven_object, height=600, width=None, key=None):
 # Add some test code to play with the component while it's in development.
 # During development, we can run this just as we would any other Streamlit
 # app: `$ streamlit run deephaven_component/__init__.py`
-if not _RELEASE:
+if DEV_MODE:
     import streamlit as st
     
     @st.cache_resource
@@ -95,10 +92,24 @@ if not _RELEASE:
         return s
     s = init_server()
 
+    @st.cache_resource
+    def init_ctx():
+        # Cache context initiation so that it is only created once
+        from deephaven.execution_context import get_exec_ctx
+        print("Getting Deephaven Context...")
+        return get_exec_ctx()
+    main_exec_ctx = init_ctx()
+
     st.subheader("Deephaven Component Demo")
 
     # Create a deephaven component with a simple table
     # Create a table and display it
-    from deephaven import empty_table
-    t = empty_table(1000).update("x=i")
-    deephaven_component(t)
+    with main_exec_ctx:
+      from deephaven import time_table
+      from deephaven.plot.figure import Figure
+      t = time_table("00:00:01").update(["x=i", "y=Math.sin(x)", "z=Math.cos(x)"])
+      deephaven_component(t, 't', height=200)
+
+      f = Figure().plot_xy(series_name="Sine", t=t, x="x", y="y").show()
+      f = f.plot_xy(series_name="Cosine", t=t, x="x", y="z").show()
+      deephaven_component(f, 'f', height=400)

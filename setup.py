@@ -2,11 +2,11 @@ import setuptools
 
 setuptools.setup(
     name="streamlit-deephaven",
-    version="0.0.1",
+    version="0.0.3",
     author="Deephaven Data Labs",
     author_email="support@deephaven.io",
-    description="Deephaven Streamlit Component",
-    long_description="",
+    description="Streamlit Deephaven Component",
+    long_description="Use Deephaven within Streamlit and display widgets",
     long_description_content_type="text/plain",
     url="https://github.com/deephaven/streamlit-deephaven",
     packages=setuptools.find_packages(),

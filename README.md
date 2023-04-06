@@ -2,7 +2,7 @@
 
 This component displays Deephaven widgets within streamlit
 
-## Quickstart
+## Development Quickstart
 
 Uses the [Streamlit component-template](https://github.com/streamlit/component-template).
 
@@ -20,11 +20,29 @@ $ pip install deephaven-server #install Deephaven server
 
 ```
 $ source .venv/bin/activate  # activate the venv you created earlier
-$ streamlit run deephaven_component/__init__.py  # run the example
+$ DH_DEV_MODE=true streamlit run streamlit_deephaven/__init__.py  # run the example
 ```
 
 - If all goes well, you should see something like this:
 
 ![Quickstart Success](quickstart.png)
 
-- Modify the Python code at `deephaven_component/__init__.py`.
+- Modify the Python code at `streamlit_deephaven/__init__.py`.
+
+## Publishing
+
+### Publishing to TestPyPi
+
+Instructions from https://docs.streamlit.io/library/components/publish#upload-your-wheel-to-pypi
+
+```
+pip install wheel twine
+python setup.py sdist bdist_wheel
+python3 -m twine upload --repository testpypi dist/*
+```
+
+You can then install the test component in a new, different python project to ensure it's working:
+
+```
+python -m pip install --index-url https://test.pypi.org/simple/ --no-deps streamlit-deephaven
+```
