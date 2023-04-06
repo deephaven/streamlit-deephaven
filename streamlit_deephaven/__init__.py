@@ -24,8 +24,8 @@ def _path_for_object(obj):
 # `declare_component` and call it done. The wrapper allows us to customize
 # our component's API: we can pre-process its input args, post-process its
 # output value, and add a docstring for users.
-def deephaven_component(widget, height=600, width=None, object_id=None, key=None):
-    """Create a new instance of "deephaven_component".
+def display_dh(widget, height=600, width=None, object_id=None, key=None):
+    """Display a Deephaven widget.
 
     Parameters
     ----------
@@ -77,7 +77,7 @@ def deephaven_component(widget, height=600, width=None, object_id=None, key=None
 
 # Add some test code to play with the component while it's in development.
 # During development, we can run this just as we would any other Streamlit
-# app: `$ streamlit run deephaven_component/__init__.py`
+# app: `$ streamlit run streamlit_deephaven/__init__.py`
 if DEV_MODE:
     import streamlit as st
     
@@ -108,8 +108,8 @@ if DEV_MODE:
       from deephaven import time_table
       from deephaven.plot.figure import Figure
       t = time_table("00:00:01").update(["x=i", "y=Math.sin(x)", "z=Math.cos(x)"])
-      deephaven_component(t, 't', height=200)
+      display_dh(t, height=200)
 
       f = Figure().plot_xy(series_name="Sine", t=t, x="x", y="y").show()
       f = f.plot_xy(series_name="Cosine", t=t, x="x", y="z").show()
-      deephaven_component(f, 'f', height=400)
+      display_dh(f, height=400)
