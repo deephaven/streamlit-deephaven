@@ -8,7 +8,7 @@ setuptools.setup(
     description="Deephaven Streamlit Component",
     long_description="",
     long_description_content_type="text/plain",
-    url="",
+    url="https://github.com/deephaven/streamlit-deephaven",
     packages=setuptools.find_packages(),
     include_package_data=True,
     classifiers=[],
