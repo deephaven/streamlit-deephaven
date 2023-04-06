@@ -2,6 +2,7 @@ import __main__
 import os
 import streamlit.components.v1 as components
 from uuid import uuid4
+import streamlit as st
 
 DEV_MODE = os.environ.get("DH_DEV_MODE", False)
 
@@ -18,6 +19,28 @@ def _path_for_object(obj):
   if name == 'deephaven.plot.figure.Figure':
     return 'chart'
   raise TypeError(f"Unknown object type: {name}")
+
+# TODO: comment init_server and get_deephaven_ctx to get it working
+# Cache the deephaven server so that it is only created once
+@st.cache_resource
+def init_server(port=8899):
+  """Initialize the Deephaven server"""
+  from deephaven_server import Server
+  server_id = f"__deephaven_server_{port}"
+  if __main__.__dict__.get(server_id) is None:
+    print("Initializing Deephaven Server...")
+    __main__.__dict__[server_id] = Server(port=port)
+  return __main__.__dict__[server_id]
+
+# Cache context initiation so that it is only created once
+@st.cache_resource
+def init_ctx():
+  from deephaven.execution_context import get_exec_ctx
+  context_id = "__deephaven_context"
+  if __main__.__dict__.get(context_id) is None:
+    print("Getting Deephaven Context...")
+    __main__.__dict__[context_id] = get_exec_ctx()
+  return get_exec_ctx()
 
 # Create a wrapper function for the component. This is an optional
 # best practice - we could simply expose the component function returned by
@@ -77,39 +100,41 @@ def display_dh(widget, height=600, width=None, object_id=None, key=None):
 
 # Add some test code to play with the component while it's in development.
 # During development, we can run this just as we would any other Streamlit
-# app: `$ streamlit run streamlit_deephaven/__init__.py`
+# app: `$ DH_DEV_MODE=true streamlit run streamlit_deephaven/__init__.py`
 if DEV_MODE:
-    import streamlit as st
-    
-    @st.cache_resource
-    def init_server():
-        print("Starting Deephaven Server...")
-        # Start up the Deephaven Server
-        from deephaven_server import Server
-        s = Server(port=8899)
-        s.start()
-        print("Deephaven Server started!")
-        return s
-    s = init_server()
+  import streamlit as st
+  
+  # TODO: Uncomment init_server and init_ctx here to get it working
+  # @st.cache_resource
+  # def init_server():
+  #     # Cache server initiation so that it is only created once
+  #     print("Starting Deephaven Server...")
+  #     from deephaven_server import Server
+  #     s = Server(port=8899)
+  #     s.start()
+  #     print("Deephaven Server started!")
+  #     return s
 
-    @st.cache_resource
-    def init_ctx():
-        # Cache context initiation so that it is only created once
-        from deephaven.execution_context import get_exec_ctx
-        print("Getting Deephaven Context...")
-        return get_exec_ctx()
-    main_exec_ctx = init_ctx()
+  # @st.cache_resource
+  # def init_ctx():
+  #     # Cache context initiation so that it is only created once
+  #     from deephaven.execution_context import get_exec_ctx
+  #     print("Getting Deephaven Context...")
+  #     return get_exec_ctx()
 
-    st.subheader("Deephaven Component Demo")
+  init_server()
+  main_exec_ctx = init_ctx()
 
-    # Create a deephaven component with a simple table
-    # Create a table and display it
-    with main_exec_ctx:
-      from deephaven import time_table
-      from deephaven.plot.figure import Figure
-      t = time_table("00:00:01").update(["x=i", "y=Math.sin(x)", "z=Math.cos(x)"])
-      display_dh(t, height=200)
+  st.subheader("Deephaven Component Demo")
 
-      f = Figure().plot_xy(series_name="Sine", t=t, x="x", y="y").show()
-      f = f.plot_xy(series_name="Cosine", t=t, x="x", y="z").show()
-      display_dh(f, height=400)
+  # Create a deephaven component with a simple table
+  # Create a table and display it
+  with main_exec_ctx:
+    from deephaven import time_table
+    from deephaven.plot.figure import Figure
+    t = time_table("00:00:01").update(["x=i", "y=Math.sin(x)", "z=Math.cos(x)"])
+    display_dh(t, height=200)
+
+    f = Figure().plot_xy(series_name="Sine", t=t, x="x", y="y").show()
+    f = f.plot_xy(series_name="Cosine", t=t, x="x", y="z").show()
+    display_dh(f, height=400)
