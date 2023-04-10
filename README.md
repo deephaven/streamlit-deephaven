@@ -1,48 +1,44 @@
 # Deephaven Streamlit Component
 
-This component displays Deephaven widgets within streamlit
+This component displays Deephaven widgets within Streamlit.
 
-## Development Quickstart
+## Quickstart
 
-Uses the [Streamlit component-template](https://github.com/streamlit/component-template).
-
-- Create a new Python virtual environment for the template:
+1. In a new folder, set up your [Streamlit environment](https://docs.streamlit.io/library/get-started/installation) and install the `streamlit-deephaven` package:
 
 ```
-$ cd template
-$ python3 -m venv .venv  # create venv
-$ source .venv/bin/activate   # activate venv
-$ pip install streamlit # install streamlit
-$ pip install deephaven-server #install Deephaven server
+python -m venv .venv
+source .venv/bin/activate
+pip install streamlit-deephaven
 ```
 
-- From a separate terminal, run the template's Streamlit app:
+2. Create your first deephaven application, named `deephaven_app.py`:
 
 ```
-$ source .venv/bin/activate  # activate the venv you created earlier
-$ DH_DEV_MODE=true streamlit run streamlit_deephaven/__init__.py  # run the example
+import streamlit as st
+from streamlit_deephaven import start_server, display_dh
+
+# Start the Deephaven server. You must start the server before running any Deephaven operations.
+start_server()
+
+st.subheader("Streamlit Deephaven")
+
+# Create a simple table.
+from deephaven import empty_table
+t = empty_table(1000).update(["x=i", "y=x * x"])
+
+# Display the table.
+display_dh(t)
 ```
 
-- If all goes well, you should see something like this:
-
-![Quickstart Success](quickstart.png)
-
-- Modify the Python code at `streamlit_deephaven/__init__.py`.
-
-## Publishing
-
-### Publishing to TestPyPi
-
-Instructions from https://docs.streamlit.io/library/components/publish#upload-your-wheel-to-pypi
+3. Run the streamlit application:
 
 ```
-pip install wheel twine
-python setup.py sdist bdist_wheel
-python3 -m twine upload --repository testpypi dist/*
+streamlit run deephaven_app.py
 ```
 
-You can then install the test component in a new, different python project to ensure it's working:
+For more information on running Streamlit, see the [Streamlit documentation](https://docs.streamlit.io/).
 
-```
-python -m pip install --index-url https://test.pypi.org/simple/ --no-deps streamlit-deephaven
-```
+## Development
+
+See [development guide](./development.md) for instructions on how to develop this package.

@@ -3,6 +3,7 @@ import os
 import streamlit.components.v1 as components
 from uuid import uuid4
 import streamlit as st
+from typing import Dict, List, Optional
 
 DEV_MODE = os.environ.get("DH_DEV_MODE", False)
 
@@ -20,27 +21,30 @@ def _path_for_object(obj):
     return 'chart'
   raise TypeError(f"Unknown object type: {name}")
 
-# TODO: comment init_server and get_deephaven_ctx to get it working
-# Cache the deephaven server so that it is only created once
-@st.cache_resource
-def init_server(port=8899):
-  """Initialize the Deephaven server"""
+def open_ctx():
+  """Open the Deephaven execution context. Required before performing any operations on the server."""
   from deephaven_server import Server
-  server_id = f"__deephaven_server_{port}"
-  if __main__.__dict__.get(server_id) is None:
-    print("Initializing Deephaven Server...")
-    __main__.__dict__[server_id] = Server(port=port)
-  return __main__.__dict__[server_id]
+  # We store the execution context as an attribute on the server instance
+  if not hasattr(Server.instance, '__deephaven_ctx'):
+    print("Initializing Context...")
 
-# Cache context initiation so that it is only created once
-@st.cache_resource
-def init_ctx():
-  from deephaven.execution_context import get_exec_ctx
-  context_id = "__deephaven_context"
-  if __main__.__dict__.get(context_id) is None:
-    print("Getting Deephaven Context...")
-    __main__.__dict__[context_id] = get_exec_ctx()
-  return get_exec_ctx()
+    from deephaven.execution_context import get_exec_ctx
+    Server.instance.__deephaven_ctx = get_exec_ctx()
+  print("Opening context...")
+  Server.instance.__deephaven_ctx.j_exec_ctx.open()
+  return Server.instance.__deephaven_ctx
+
+def start_server(host: Optional[str] = None, port: Optional[int] = None, jvm_args: Optional[List[str]] = None, dh_args: Dict[str, str] = {}):
+  """Initialize the Deephaven server. This will start the server if it is not already running."""
+  from deephaven_server import Server
+  if Server.instance is None:
+    print("Initializing Deephaven Server...")
+    s = Server(host=host, port=port, jvm_args=jvm_args, dh_args=dh_args)
+    s.start()
+    print("Deephaven Server listening on port", s.port)
+
+  open_ctx()
+  return Server.instance
 
 # Create a wrapper function for the component. This is an optional
 # best practice - we could simply expose the component function returned by
@@ -104,37 +108,17 @@ def display_dh(widget, height=600, width=None, object_id=None, key=None):
 if DEV_MODE:
   import streamlit as st
   
-  # TODO: Uncomment init_server and init_ctx here to get it working
-  # @st.cache_resource
-  # def init_server():
-  #     # Cache server initiation so that it is only created once
-  #     print("Starting Deephaven Server...")
-  #     from deephaven_server import Server
-  #     s = Server(port=8899)
-  #     s.start()
-  #     print("Deephaven Server started!")
-  #     return s
-
-  # @st.cache_resource
-  # def init_ctx():
-  #     # Cache context initiation so that it is only created once
-  #     from deephaven.execution_context import get_exec_ctx
-  #     print("Getting Deephaven Context...")
-  #     return get_exec_ctx()
-
-  init_server()
-  main_exec_ctx = init_ctx()
+  start_server()
 
   st.subheader("Deephaven Component Demo")
 
   # Create a deephaven component with a simple table
   # Create a table and display it
-  with main_exec_ctx:
-    from deephaven import time_table
-    from deephaven.plot.figure import Figure
-    t = time_table("00:00:01").update(["x=i", "y=Math.sin(x)", "z=Math.cos(x)"])
-    display_dh(t, height=200)
+  from deephaven import time_table
+  from deephaven.plot.figure import Figure
+  t = time_table("00:00:01").update(["x=i", "y=Math.sin(x)", "z=Math.cos(x)"])
+  display_dh(t, height=200)
 
-    f = Figure().plot_xy(series_name="Sine", t=t, x="x", y="y").show()
-    f = f.plot_xy(series_name="Cosine", t=t, x="x", y="z").show()
-    display_dh(f, height=400)
+  f = Figure().plot_xy(series_name="Sine", t=t, x="x", y="y").show()
+  f = f.plot_xy(series_name="Cosine", t=t, x="x", y="z").show()
+  display_dh(f, height=400)
