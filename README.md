@@ -1,30 +1,44 @@
 # Deephaven Streamlit Component
 
-This component displays Deephaven widgets within streamlit
+This component displays Deephaven widgets within Streamlit.
 
 ## Quickstart
 
-Uses the [Streamlit component-template](https://github.com/streamlit/component-template).
-
-- Create a new Python virtual environment for the template:
+1. In a new folder, set up your [Streamlit environment](https://docs.streamlit.io/library/get-started/installation) and install the `streamlit-deephaven` package:
 
 ```
-$ cd template
-$ python3 -m venv .venv  # create venv
-$ source .venv/bin/activate   # activate venv
-$ pip install streamlit # install streamlit
-$ pip install deephaven-server #install Deephaven server
+python -m venv .venv
+source .venv/bin/activate
+pip install streamlit-deephaven
 ```
 
-- From a separate terminal, run the template's Streamlit app:
+2. Create your first deephaven application, named `deephaven_app.py`:
 
 ```
-$ source .venv/bin/activate  # activate the venv you created earlier
-$ streamlit run deephaven_component/__init__.py  # run the example
+import streamlit as st
+from streamlit_deephaven import start_server, display_dh
+
+# Start the Deephaven server. You must start the server before running any Deephaven operations.
+start_server()
+
+st.subheader("Streamlit Deephaven")
+
+# Create a simple table.
+from deephaven import empty_table
+t = empty_table(1000).update(["x=i", "y=x * x"])
+
+# Display the table.
+display_dh(t)
 ```
 
-- If all goes well, you should see something like this:
+3. Run the streamlit application:
 
-![Quickstart Success](quickstart.png)
+```
+streamlit run deephaven_app.py
+```
 
-- Modify the Python code at `deephaven_component/__init__.py`.
+For more information on running Streamlit, see the [Streamlit documentation](https://docs.streamlit.io/).
+
+## Development
+
+See [development guide](./development.md) for instructions on how to develop this package.

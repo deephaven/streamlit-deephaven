@@ -1,12 +1,12 @@
 import setuptools
 
 setuptools.setup(
-    name="deephaven-streamlit",
-    version="0.0.1",
+    name="streamlit-deephaven",
+    version="0.0.5-dev0",
     author="Deephaven Data Labs",
     author_email="support@deephaven.io",
-    description="Deephaven Streamlit Component",
-    long_description="",
+    description="Streamlit Deephaven Component",
+    long_description="Use Deephaven within Streamlit and display widgets",
     long_description_content_type="text/plain",
     url="https://github.com/deephaven/streamlit-deephaven",
     packages=setuptools.find_packages(),
@@ -18,5 +18,6 @@ setuptools.setup(
         # If your component has other Python dependencies, list
         # them here.
         "streamlit >= 0.63",
+        "deephaven-server >= 0.23.0",
     ],
 )
