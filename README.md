@@ -37,6 +37,13 @@ display_dh(t)
 streamlit run deephaven_app.py
 ```
 
+## Alternate Deephaven Server URL
+By default, the Deephaven server is located at `http://localhost:{port}`, where `{port}` is the port set in the Deephaven server creation call. If the server is not there, such as when running Streamlit in a Docker container, modify the `DEEPHAVEN_ST_URL` environmental variable to the correct URL before calling `display_dh`. 
+```python
+import os
+os.environ["DEEPHAVEN_ST_URL"] = "http://localhost:1234"
+```
+
 For more information on running Streamlit, see the [Streamlit documentation](https://docs.streamlit.io/).
 
 ## Development

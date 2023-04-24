@@ -88,9 +88,16 @@ def display_dh(widget, height=600, width=None, object_id=None, key=None):
     if object_id is None:
         object_id = f"__w_{str(uuid4()).replace('-', '_')}"
 
-    # Generate the iframe_url from the object type
     server_url = f"http://localhost:{Server.instance.port}"
-    iframe_url = f"{server_url}/iframe/{_path_for_object(widget)}/?name={object_id}"
+
+    if "DEEPHAVEN_ST_URL" in os.environ:
+      server_url = os.environ["DEEPHAVEN_ST_URL"]
+
+    if not server_url.endswith("/"):
+      server_url = f"{server_url}/"
+
+    # Generate the iframe_url from the object type
+    iframe_url = f"{server_url}iframe/{_path_for_object(widget)}/?name={object_id}"
     object_type = _str_object_type(widget)
 
     # Add the table to the main modules globals list so it can be retrieved by the iframe
