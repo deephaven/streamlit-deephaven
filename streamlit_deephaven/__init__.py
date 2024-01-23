@@ -4,6 +4,10 @@ import streamlit.components.v1 as components
 from uuid import uuid4
 import streamlit as st
 from typing import Dict, List, Optional
+import base64
+
+TABLE_TYPES = {"deephaven.table.Table", "pandas.core.frame.DataFrame", "pydeephaven.table.Table"}
+FIGURE_TYPES = {"deephaven.plot.figure.Figure"}
 
 DEV_MODE = os.environ.get("DH_DEV_MODE", False)
 
@@ -15,11 +19,13 @@ def _path_for_object(obj):
   """Return the iframe path for the specified object. Inspects the class name to determine."""
   name = _str_object_type(obj)
 
-  if name in ('deephaven.table.Table', 'pandas.core.frame.DataFrame'):
-    return 'table'
-  if name == 'deephaven.plot.figure.Figure':
-    return 'chart'
-  raise TypeError(f"Unknown object type: {name}")
+  if name in TABLE_TYPES:
+      return "table"
+  if name in FIGURE_TYPES:
+      return "chart"
+
+  # No special handling for this type, just try it as a widget
+  return "widget"
 
 def open_ctx():
   """Open the Deephaven execution context. Required before performing any operations on the server."""
@@ -51,23 +57,26 @@ def start_server(host: Optional[str] = None, port: Optional[int] = None, jvm_arg
 # `declare_component` and call it done. The wrapper allows us to customize
 # our component's API: we can pre-process its input args, post-process its
 # output value, and add a docstring for users.
-def display_dh(widget, height=600, width=None, object_id=None, key=None):
+def display_dh(widget, height=600, width=None, object_id=None, key=None, session=None):
     """Display a Deephaven widget.
 
     Parameters
     ----------
-    widget: deephaven.table.Table | deephaven.plot.figure.Figure | pandas.core.frame.DataFrame
-        The Deephaven widget we want to display
+    widget: deephaven.table.Table | deephaven.plot.figure.Figure | pandas.core.frame.DataFrame | str
+        The Deephaven widget we want to display. If a string is passed, a session must be specified.
     height: int
         The height of the widget in pixels
     width: int
         The width of the widget in pixels
     object_id: string
-        The variable name of the Deephaven widget we want to display
+        The variable name of the Deephaven widget we want to display.
     key: str or None
         An optional key that uniquely identifies this component. If this is
         None, and the component's arguments are changed, the component will
         be re-mounted in the Streamlit frontend and lose its current state.
+    session: pydeephaven.Session
+        The session to use when displaying a remote Deephaven widget by name.
+        Must be specified if a string is passed as the widget parameter.
 
     Returns
     -------
@@ -85,10 +94,52 @@ def display_dh(widget, height=600, width=None, object_id=None, key=None):
     # value of the component before the user has interacted with it.
 
     # Generate a new table ID using a UUID prepended with a `__w_` prefix if name not specified
-    if object_id is None:
+
+    if isinstance(widget, str):
+        # a string widget must match the object_id
+        object_id = widget
+    elif object_id is None:
         object_id = f"__w_{str(uuid4()).replace('-', '_')}"
 
-    server_url = f"http://localhost:{Server.instance.port}"
+    params = {"name": object_id}
+
+    if isinstance(widget, str):
+        if session is None:
+            raise ValueError(
+                "session must be specified when using a remote pydeephaven object by name"
+            )
+        port = session.port
+        server_url = f"http://{session.host}:{port}/"
+    elif _str_object_type(widget) == "pydeephaven.table.Table":
+        session = widget.session
+
+        if b"envoy-prefix" in session._extra_headers:
+            params["envoyPrefix"] = session._extra_headers[b"envoy-prefix"].decode(
+                "ascii"
+            )
+
+        port = widget.session.port
+        server_url = f"http://{widget.session.host}:{port}/"
+
+        if hasattr(session, "session_manager"):
+            params["authProvider"] = "parent"
+            # We have a DnD session, and we can get the authentication and connection details from the session manager
+            token = base64.b64encode(
+                session.session_manager.auth_client.get_token(
+                    "RemoteQueryProcessor"
+                ).SerializeToString()
+            ).decode("us-ascii")
+            server_url = (
+                widget.session.pqinfo().state.connectionDetails.staticUrl
+            )
+
+        session.bind_table(object_id, widget)
+    else:
+        port = Server.instance.port
+        server_url = f"http://localhost:{port}/"
+
+        # Add the table to the main modules globals list so it can be retrieved by the iframe
+        __main__.__dict__[object_id] = widget
 
     if "DEEPHAVEN_ST_URL" in os.environ:
       server_url = os.environ["DEEPHAVEN_ST_URL"]
@@ -98,10 +149,6 @@ def display_dh(widget, height=600, width=None, object_id=None, key=None):
 
     # Generate the iframe_url from the object type
     iframe_url = f"{server_url}iframe/{_path_for_object(widget)}/?name={object_id}"
-    object_type = _str_object_type(widget)
-
-    # Add the table to the main modules globals list so it can be retrieved by the iframe
-    __main__.__dict__[object_id] = widget
 
     # We don't really need the component value in the Deephaven example, since we're just creating a display widget...
     # Maybe if we were making a one click widget, that would make sense...
