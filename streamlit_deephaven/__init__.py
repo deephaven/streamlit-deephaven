@@ -101,6 +101,7 @@ def display_dh(widget, height=600, width=None, object_id=None, key=None, session
     elif object_id is None:
         object_id = f"__w_{str(uuid4()).replace('-', '_')}"
 
+
     params = {"name": object_id}
 
     if isinstance(widget, str):
