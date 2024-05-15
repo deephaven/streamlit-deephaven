@@ -2,8 +2,7 @@ import __main__
 import os
 import streamlit.components.v1 as components
 from uuid import uuid4
-import streamlit as st
-from typing import Dict, List, Optional
+from typing import List, Optional
 import base64
 
 TABLE_TYPES = {"deephaven.table.Table", "pandas.core.frame.DataFrame", "pydeephaven.table.Table"}
@@ -40,12 +39,12 @@ def open_ctx():
   Server.instance.__deephaven_ctx.j_exec_ctx.open()
   return Server.instance.__deephaven_ctx
 
-def start_server(host: Optional[str] = None, port: Optional[int] = None, jvm_args: Optional[List[str]] = None, dh_args: Dict[str, str] = {}):
+def start_server(host: Optional[str] = None, port: Optional[int] = None, jvm_args: Optional[List[str]] = None):
   """Initialize the Deephaven server. This will start the server if it is not already running."""
   from deephaven_server import Server
   if Server.instance is None:
     print("Initializing Deephaven Server...")
-    s = Server(host=host, port=port, jvm_args=jvm_args, dh_args=dh_args)
+    s = Server(host=host, port=port, jvm_args=jvm_args)
     s.start()
     print("Deephaven Server listening on port", s.port)
 
