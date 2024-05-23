@@ -4,6 +4,7 @@ import streamlit.components.v1 as components
 from uuid import uuid4
 from typing import List, Optional
 import base64
+import streamlit as st
 
 TABLE_TYPES = {"deephaven.table.Table", "pandas.core.frame.DataFrame", "pydeephaven.table.Table"}
 FIGURE_TYPES = {"deephaven.plot.figure.Figure"}
@@ -42,8 +43,9 @@ def open_ctx():
     Server.instance.__deephaven_ctx.j_exec_ctx.open()
     return Server.instance.__deephaven_ctx
 
-
-def start_server(host: Optional[str] = None, port: Optional[int] = None, jvm_args: Optional[List[str]] = None):
+# cache this so it is only started once and streamlit waits for it to be ready before rerunning
+@st.cache_resource
+def _starting_server(host: Optional[str] = None, port: Optional[int] = None, jvm_args: Optional[List[str]] = None):
     """Initialize the Deephaven server. This will start the server if it is not already running."""
     from deephaven_server import Server
     if Server.instance is None:
@@ -52,8 +54,13 @@ def start_server(host: Optional[str] = None, port: Optional[int] = None, jvm_arg
         s.start()
         print("Deephaven Server listening on port", s.port)
 
-    open_ctx()
     return Server.instance
+
+def start_server(host: Optional[str] = None, port: Optional[int] = None, jvm_args: Optional[List[str]] = None):
+    """Initialize the Deephaven server. This will start the server if it is not already running."""
+    server = _starting_server(host, port, jvm_args)
+    open_ctx()
+    return server
 
 
 # Create a wrapper function for the component. This is an optional
