@@ -19,3 +19,9 @@ display_dh(t, height=200)
 f = Figure().plot_xy(series_name="Sine", t=t, x="x", y="y").show()
 f = f.plot_xy(series_name="Cosine", t=t, x="x", y="z").show()
 display_dh(f, height=400)
+
+# Create a deephaven table that can be updated
+seconds = st.selectbox("Seconds", [1, 2, 3], index=1)
+
+t = time_table(f"PT{seconds}S").update([f"x={seconds}"])
+display_dh(t, height=200, object_id="t")
