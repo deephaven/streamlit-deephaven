@@ -2,8 +2,9 @@
 # run with: streamlit run test_app.py
 
 import streamlit as st
+from streamlit_deephaven import start_server, display_dh
 
-start_server()
+start_server(jvm_args=["-DAuthHandlers=io.deephaven.auth.AnonymousAuthenticationHandler"])
 
 st.subheader("Deephaven Component Demo")
 
@@ -12,7 +13,7 @@ st.subheader("Deephaven Component Demo")
 from deephaven import time_table
 from deephaven.plot.figure import Figure
 
-t = time_table("00:00:01").update(["x=i", "y=Math.sin(x)", "z=Math.cos(x)"])
+t = time_table("PT1S").update(["x=i", "y=Math.sin(x)", "z=Math.cos(x)"])
 display_dh(t, height=200)
 
 f = Figure().plot_xy(series_name="Sine", t=t, x="x", y="y").show()

@@ -6,31 +6,15 @@ from typing import List, Optional
 import base64
 import streamlit as st
 
-TABLE_TYPES = {"deephaven.table.Table", "pandas.core.frame.DataFrame", "pydeephaven.table.Table"}
-FIGURE_TYPES = {"deephaven.plot.figure.Figure"}
-
-DEV_MODE = os.environ.get("DH_DEV_MODE", False)
-
+DH_STATE = "_deephaven"
 
 def _str_object_type(obj):
     """Returns the object type as a string value"""
     return f"{obj.__class__.__module__}.{obj.__class__.__name__}"
 
-
-def _path_for_object(obj):
-    """Return the iframe path for the specified object. Inspects the class name to determine."""
-    name = _str_object_type(obj)
-
-    if name in TABLE_TYPES:
-        return "table"
-    if name in FIGURE_TYPES:
-        return "chart"
-
-    # No special handling for this type, just try it as a widget
-    return "widget"
-
-
-def open_ctx():
+# cache this so it is only started once and streamlit waits for it to be ready before rerunning
+@st.cache_resource
+def _create_ctx():
     """Open the Deephaven execution context. Required before performing any operations on the server."""
     from deephaven_server import Server
     # We store the execution context as an attribute on the server instance
@@ -39,8 +23,6 @@ def open_ctx():
 
         from deephaven.execution_context import get_exec_ctx
         Server.instance.__deephaven_ctx = get_exec_ctx()
-    print("Opening context...")
-    Server.instance.__deephaven_ctx.j_exec_ctx.open()
     return Server.instance.__deephaven_ctx
 
 # cache this so it is only started once and streamlit waits for it to be ready before rerunning
@@ -53,15 +35,37 @@ def _starting_server(host: Optional[str] = None, port: Optional[int] = None, jvm
         s = Server(host=host, port=port, jvm_args=jvm_args)
         s.start()
         print("Deephaven Server listening on port", s.port)
+        _create_ctx()
 
     return Server.instance
 
-def start_server(host: Optional[str] = None, port: Optional[int] = None, jvm_args: Optional[List[str]] = None):
-    """Initialize the Deephaven server. This will start the server if it is not already running."""
-    server = _starting_server(host, port, jvm_args)
-    open_ctx()
-    return server
+def _remove_widgets():
+    """Remove all widgets from the main module globals"""
+    for object_id in st.session_state[DH_STATE]['to_delete']:
+        __main__.__dict__.pop(object_id, None)
 
+def start_server(host: Optional[str] = None, port: Optional[int] = None, jvm_args: Optional[List[str]] = None):
+    """
+    Initialize the Deephaven server. This will start the server if it is not already running.
+    This function should be called on every rerun of the streamlit app to ensure old objects are cleaned up.
+
+    Args:
+        host: The host to start the server on. Defaults to None.
+        port: The port to start the server on. Defaults to None.
+        jvm_args: A list of JVM arguments to pass to the server. Defaults to None.
+    """
+    from deephaven_server import Server
+    server = _starting_server(host, port, jvm_args)
+    # must open context per session
+    Server.instance.__deephaven_ctx.j_exec_ctx.open()
+
+    if not hasattr(st.session_state, DH_STATE):
+        st.session_state[DH_STATE] = {"to_delete": []}
+
+    # clear the to_delete list
+    # this should run on every rerun to ensure old objects are removed on the server
+    _remove_widgets()
+    return server
 
 # Create a wrapper function for the component. This is an optional
 # best practice - we could simply expose the component function returned by
@@ -104,15 +108,22 @@ def display_dh(widget, height=600, width=None, object_id=None, key=None, session
     # "default" is a special argument that specifies the initial return
     # value of the component before the user has interacted with it.
 
-    # Generate a new table ID using a UUID prepended with a `__w_` prefix if name not specified
+    # Generate a nonce for the widget to ensure the iframe is reloaded
+    # This is necessary in cases where widget or object_id is a string
+    nonce = str(uuid4())
 
     if isinstance(widget, str):
         # a string widget must match the object_id
         object_id = widget
     elif object_id is None:
+        # Generate a new table ID using a UUID prepended with a `__w_` prefix if name not specified
         object_id = f"__w_{str(uuid4()).replace('-', '_')}"
 
-    params = {"name": object_id}
+    if not isinstance(widget, str):
+        # Set this object to be removed on rerun but only if the widget is not a remote object
+        st.session_state['_deephaven']['to_delete'].append(object_id)
+
+    params = {"name": object_id, "nonce": nonce}
 
     if isinstance(widget, str):
         if session is None:
@@ -155,36 +166,16 @@ def display_dh(widget, height=600, width=None, object_id=None, key=None, session
     if "DEEPHAVEN_ST_URL" in os.environ:
         server_url = os.environ["DEEPHAVEN_ST_URL"]
 
+    param_values = [f"{k}={v}" for k, v in params.items()]
+    param_string = "?" + "&".join(param_values)
+
     if not server_url.endswith("/"):
         server_url = f"{server_url}/"
 
     # Generate the iframe_url from the object type
-    iframe_url = f"{server_url}iframe/{_path_for_object(widget)}/?name={object_id}"
+    iframe_url = f"{server_url}iframe/widget/{param_string}"
 
     # We don't really need the component value in the Deephaven example, since we're just creating a display widget...
     # Maybe if we were making a one click widget, that would make sense...
     # component_value = _component_func(iframe_url=iframe_url, object_type=object_type, width=width, height=height, key=key, default=0)
     return components.iframe(iframe_url, height=height, width=width)
-
-
-# Add some test code to play with the component while it's in development.
-# During development, we can run this just as we would any other Streamlit
-# app: `$ DH_DEV_MODE=true streamlit run streamlit_deephaven/__init__.py`
-if DEV_MODE:
-    import streamlit as st
-
-    start_server()
-
-    st.subheader("Deephaven Component Demo")
-
-    # Create a deephaven component with a simple table
-    # Create a table and display it
-    from deephaven import time_table
-    from deephaven.plot.figure import Figure
-
-    t = time_table("00:00:01").update(["x=i", "y=Math.sin(x)", "z=Math.cos(x)"])
-    display_dh(t, height=200)
-
-    f = Figure().plot_xy(series_name="Sine", t=t, x="x", y="y").show()
-    f = f.plot_xy(series_name="Cosine", t=t, x="x", y="z").show()
-    display_dh(f, height=400)
