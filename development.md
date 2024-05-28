@@ -23,7 +23,7 @@ $ streamlit run streamlit_deephaven/test_app.py  # run the example
 
 ![Quickstart Success](quickstart.png)
 
-- Modify the Python code at `streamlit_deephaven/display.py`.
+- Modify the Python code at `streamlit_deephaven/test.py`.
 
 # Publishing
 
