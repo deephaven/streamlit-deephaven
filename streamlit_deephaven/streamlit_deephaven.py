@@ -5,8 +5,12 @@ from uuid import uuid4
 from typing import List, Optional
 import base64
 import streamlit as st
+import threading
 
 DH_STATE = "_deephaven"
+
+lock = threading.RLock()
+
 
 def _str_object_type(obj):
     """Returns the object type as a string value"""
@@ -18,11 +22,10 @@ def _create_ctx():
     """Open the Deephaven execution context. Required before performing any operations on the server."""
     from deephaven_server import Server
     # We store the execution context as an attribute on the server instance
-    if not hasattr(Server.instance, '__deephaven_ctx'):
-        print("Initializing Context...")
+    print("Initializing Context...")
 
-        from deephaven.execution_context import get_exec_ctx
-        Server.instance.__deephaven_ctx = get_exec_ctx()
+    from deephaven.execution_context import get_exec_ctx
+    Server.instance.__deephaven_ctx = get_exec_ctx()
     return Server.instance.__deephaven_ctx
 
 # cache this so it is only started once and streamlit waits for it to be ready before rerunning
@@ -30,19 +33,24 @@ def _create_ctx():
 def _starting_server(host: Optional[str] = None, port: Optional[int] = None, jvm_args: Optional[List[str]] = None):
     """Initialize the Deephaven server. This will start the server if it is not already running."""
     from deephaven_server import Server
-    if Server.instance is None:
-        print("Initializing Deephaven Server...")
-        s = Server(host=host, port=port, jvm_args=jvm_args)
-        s.start()
-        print("Deephaven Server listening on port", s.port)
-        _create_ctx()
+    print("Initializing Deephaven Server...")
+    s = Server(host=host, port=port, jvm_args=jvm_args)
+    s.start()
+    print("Deephaven Server listening on port", s.port)
+
+    __main__.__dict__['MAIN_AND_DH_DRIFTED'] = False  # see next 'with lock:' block below
+    Server.instance.__globals = __main__.__dict__
+
+    # context should be created here to ensure it's created by the same thread that started the server
+    _create_ctx()
 
     return Server.instance
 
 def _remove_widgets():
     """Remove all widgets from the main module globals"""
+    from deephaven_server import Server
     for object_id in st.session_state[DH_STATE]['to_delete']:
-        __main__.__dict__.pop(object_id, None)
+        Server.instance.__globals.pop(object_id, None)
 
 def start_server(host: Optional[str] = None, port: Optional[int] = None, jvm_args: Optional[List[str]] = None):
     """
@@ -56,6 +64,16 @@ def start_server(host: Optional[str] = None, port: Optional[int] = None, jvm_arg
     """
     from deephaven_server import Server
     server = _starting_server(host, port, jvm_args)
+
+    with lock:
+        # https://github.com/kzk2000/deephaven-streamlit/blob/f2bc09fcd900c2332db84456d210edb94d7c8106/app/src/streamlit_deephaven.py
+        # Possibly handles a very rare race condition upon reloading many open Streamlit tabs
+        # when the Streamlit server re-starts. Ensures that the most recent __main__.__dict__ of the latest
+        # Streamlit server session is always stored as attribute on the server instance as well.
+        if __main__.__dict__.get('MAIN_AND_DH_DRIFTED', True):
+            __main__.__dict__['MAIN_AND_DH_DRIFTED'] = False
+            Server.instance.__globals = __main__.__dict__
+
     # must open context per session
     Server.instance.__deephaven_ctx.j_exec_ctx.open()
 
@@ -121,7 +139,7 @@ def display_dh(widget, height=600, width=None, object_id=None, key=None, session
 
     if not isinstance(widget, str):
         # Set this object to be removed on rerun but only if the widget is not a remote object
-        st.session_state['_deephaven']['to_delete'].append(object_id)
+        st.session_state[DH_STATE]['to_delete'].append(object_id)
 
     params = {"name": object_id, "nonce": nonce}
 
@@ -161,7 +179,7 @@ def display_dh(widget, height=600, width=None, object_id=None, key=None, session
         server_url = f"http://localhost:{port}/"
 
         # Add the table to the main modules globals list so it can be retrieved by the iframe
-        __main__.__dict__[object_id] = widget
+        Server.instance.__globals[object_id] = widget
 
     if "DEEPHAVEN_ST_URL" in os.environ:
         server_url = os.environ["DEEPHAVEN_ST_URL"]
