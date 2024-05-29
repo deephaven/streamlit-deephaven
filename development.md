@@ -16,14 +16,14 @@ $ pip install deephaven-server  # install Deephaven server
 
 ```
 $ source .venv/bin/activate  # activate the venv you created earlier
-$ DH_DEV_MODE=true streamlit run streamlit_deephaven/__init__.py  # run the example
+$ streamlit run streamlit_deephaven/test_app.py  # run the example
 ```
 
 - If all goes well, you should see something like this:
 
 ![Quickstart Success](quickstart.png)
 
-- Modify the Python code at `streamlit_deephaven/__init__.py`.
+- Modify the Python code at `streamlit_deephaven/test_app.py`.
 
 # Publishing
 
