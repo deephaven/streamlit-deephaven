@@ -51,6 +51,8 @@ def _remove_widgets():
     from deephaven_server import Server
     for object_id in st.session_state[DH_STATE]['to_delete']:
         Server.instance.__globals.pop(object_id, None)
+    st.session_state[DH_STATE]['to_delete'] = []
+
 
 def start_server(host: Optional[str] = None, port: Optional[int] = None, jvm_args: Optional[List[str]] = None):
     """
